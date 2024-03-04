@@ -69,6 +69,26 @@ function clean() {
     done
 }
 
+function build() {
+    mkdir -p build || die "mkdir failed"
+    cd build || die "cd failed"
+    cmake .. || die "cmake failed"
+    make || die "make failed"
+    cd .. || die "cd failed"
+}
+
+function build_mpi() {
+    numbers=2
+    calc=$(echo "(l($numbers)/l(2))+1" | bc -l)
+    proc=$(python3 -c "from math import ceil; print (ceil($calc))") # zaokrohleni nahoru
+    mpic++ --prefix /usr/local/share/OpenMPI -o pms pms.cpp || die "mpic++ failed"
+    dd if=/dev/random bs=1 count=$numbers of=numbers 2> /dev/null || die "dd failed"
+    #mpirun --prefix /usr/local/share/OpenMPI -np $proc pms || die "mpirun failed"
+    echo "Pocet procesoru: $proc; pocet cisel: $numbers"
+    echo "================"
+    mpirun -np $proc ./pms || die "mpirun failed"
+}
+
 function rsync_to_server() {
     # Rsync to the server
     # ENVIRONMENT VARIABLES
@@ -115,7 +135,6 @@ function usage() {
 function die() {
     # Print error message on stdout and exit
     printf "${RED}ERROR: $1${NC}\n"
-    help
     exit 1
 }
 

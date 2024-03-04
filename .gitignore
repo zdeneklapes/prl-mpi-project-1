@@ -2,6 +2,7 @@
 .git/
 others/
 cmake-build-debug/
+build/
 tmp/
 
 .DS_Store

@@ -18,8 +18,9 @@ mpic++ --prefix /usr/local/share/OpenMPI -o pms pms.cpp
 dd if=/dev/random bs=1 count=$numbers of=numbers 2> /dev/null
 
 #spusteni programu
-echo "Pocet procesoru: $proc"
-mpirun --prefix /usr/local/share/OpenMPI -np $proc pms
+#echo "Pocet procesoru: $proc"
+#mpirun --prefix /usr/local/share/OpenMPI -np $proc pms
+mpirun -np $proc ./pms
 
 #uklid
-#rm -f pms numbers
+#rm -f pms
