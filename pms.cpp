@@ -50,6 +50,9 @@ struct Program_s {
 } typedef Program;
 
 
+/**
+ * File handler class
+ */
 class FileHandler {
 public:
     FILE *file;
@@ -71,6 +74,10 @@ public:
     }
 };
 
+/**
+ * Print error message and exit
+ * @param msg
+ */
 void die(const char *msg, ...) {
     // Print error message with variable arguments
     va_list args;
@@ -81,6 +88,10 @@ void die(const char *msg, ...) {
     MPI_Abort(MPI_COMM_WORLD, 1);
 }
 
+/**
+ * Load file info like how many numbers are in the file
+ * @param program
+ */
 void load_file_info(Program * program) {
     FileHandler file_handler(INPUT_FILE, "rb");
 
