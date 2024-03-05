@@ -35,6 +35,8 @@ struct Program_s {
     int mpi_send_count = 1;
     int max_queue_0_elements;
     int send_elements = 0;
+    int send_q0_elements = 0;
+    int send_q1_elements = 0;
     int recv_elements = 0;
 } typedef Program;
 
@@ -95,25 +97,36 @@ int get_queue_id_send(Program * program) {
     return queue_id;
 }
 
-u_char get_number_send(Program *program) {
+u_char get_number_send(Program * program) {
     unsigned char number = '\0';
 
-    if (program->process_id == 1) {
-        if (program->send_elements % 2 == 1 && !program->queues[Q1].empty()) {
+    int chunk_size = 1 << (program->process_id-1);
+
+    int send_q0_chunks = program->send_q0_elements/chunk_size;
+    int send_q1_chunks = program->send_q1_elements / chunk_size;
+
+    DEBUG_PRINT_LITE("Q0 (size: %ld) vs. Q1 (size: %ld): %d vs %d\tcurrent process %d\n", program->queues[Q0].size(),
+                     program->queues[Q1].size(), program->queues[Q0].front(), program->queues[Q1].front(), program->process_id);
+    if (send_q0_chunks < send_q1_chunks) {
+        number = program->queues[Q0].front();
+        program->queues[Q0].pop();
+        program->send_q0_elements++;
+    } else if (send_q0_chunks > send_q1_chunks) {
+        number = program->queues[Q1].front();
+        program->queues[Q1].pop();
+        program->send_q1_elements++;
+    } else {
+        if (program->queues[Q0].front() > program->queues[Q1].front() || program->queues[Q1].empty()) {
+            number = program->queues[Q0].front();
+            program->queues[Q0].pop();
+            program->send_q0_elements++;
+        } else {
             number = program->queues[Q1].front();
             program->queues[Q1].pop();
-            return number;
+            program->send_q1_elements++;
         }
     }
 
-    DEBUG_PRINT_LITE("Q0 (size: %ld) vs. Q1 (size: %ld): %d vs %d\n", program->queues[Q0].size(), program->queues[Q1].size(), program->queues[Q0].front(), program->queues[Q1].front());
-    if (program->queues[Q0].front() > program->queues[Q1].front() || program->queues[Q1].empty()) {
-        number = program->queues[Q0].front();
-        program->queues[Q0].pop();
-    } else {
-        number = program->queues[Q1].front();
-        program->queues[Q1].pop();
-    }
     return number;
 }
 
@@ -122,7 +135,8 @@ void send_number(Program * program) {
     unsigned char number = get_number_send(program);
 
     //    DEBUG_PRINT_LITE("START Send: %d\ttag %d\tfrom process %d\tto process %d\n", number, tag, program->process_id, program->process_id + 1);
-    int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1, tag, MPI_COMM_WORLD);
+    int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1, tag,
+                                 MPI_COMM_WORLD);
     DEBUG_PRINT_LITE("Send: %d \ttag %d\tcurrent process %d\n", number, tag, program->process_id);
 
     if (returned_code != MPI_SUCCESS) {
@@ -137,7 +151,7 @@ int get_queue_id_recv(const Program *program) {
     int current_chunk = program->recv_elements / change;
     int queue_id = current_chunk % QUEUE_COUNT == 0 ? Q0 : Q1;
 //    if (program->process_id != program->mpi_size - 1) {
-        return queue_id;
+    return queue_id;
 //    } else {
 //        return 0;
 //    }
@@ -226,12 +240,13 @@ void pipeline_merge_sort(Program * program) {
 //        DEBUG_PRINT_LITE("====== First process %d ======\n", program->process_id);
         for (long long int i = program->numbers_count - 1; i >= 0; --i) {
             u_char number = program->numbers[i];
-            int tag = program->numbers_count % QUEUE_COUNT == 0 ? ((i+1) % QUEUE_COUNT) : ((i) % QUEUE_COUNT);;
+            int tag = program->numbers_count % QUEUE_COUNT == 0 ? ((i + 1) % QUEUE_COUNT) : ((i) % QUEUE_COUNT);;
             if (program->mpi_size == 2) {
                 tag = 0;
             }
 
-            int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1, tag, MPI_COMM_WORLD);
+            int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1,
+                                         tag, MPI_COMM_WORLD);
             DEBUG_PRINT_LITE("Send: %d \ttag %d\tcurrent process %d\n", number, tag, program->process_id);
             if (returned_code != MPI_SUCCESS) { die("Cannot send data"); }
         }
@@ -241,7 +256,7 @@ void pipeline_merge_sort(Program * program) {
             if (program->recv_elements < program->numbers_count) {
                 receive_number(program);
             }
-            print_queue(program);
+//            print_queue(program);
 
             if (!program->can_send) {
                 check_can_start_send(program);
