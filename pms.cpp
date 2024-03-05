@@ -100,13 +100,14 @@ int get_queue_id_send(Program * program) {
 u_char get_number_send(Program * program) {
     unsigned char number = '\0';
 
-    int chunk_size = 1 << (program->process_id-1);
+    int chunk_size = 1 << (program->process_id - 1);
 
-    int send_q0_chunks = program->send_q0_elements/chunk_size;
+    int send_q0_chunks = program->send_q0_elements / chunk_size;
     int send_q1_chunks = program->send_q1_elements / chunk_size;
 
     DEBUG_PRINT_LITE("Q0 (size: %ld) vs. Q1 (size: %ld): %d vs %d\tcurrent process %d\n", program->queues[Q0].size(),
-                     program->queues[Q1].size(), program->queues[Q0].front(), program->queues[Q1].front(), program->process_id);
+                     program->queues[Q1].size(), program->queues[Q0].front(), program->queues[Q1].front(),
+                     program->process_id);
     if (send_q0_chunks < send_q1_chunks) {
         number = program->queues[Q0].front();
         program->queues[Q0].pop();
@@ -241,10 +242,6 @@ void pipeline_merge_sort(Program * program) {
         for (long long int i = program->numbers_count - 1; i >= 0; --i) {
             u_char number = program->numbers[i];
             int tag = program->numbers_count % QUEUE_COUNT == 0 ? ((i + 1) % QUEUE_COUNT) : ((i) % QUEUE_COUNT);;
-            if (program->mpi_size == 2) {
-                tag = 0;
-            }
-
             int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1,
                                          tag, MPI_COMM_WORLD);
             DEBUG_PRINT_LITE("Send: %d \ttag %d\tcurrent process %d\n", number, tag, program->process_id);
