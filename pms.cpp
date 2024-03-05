@@ -1,3 +1,14 @@
+/*
+ * Parallel Merge Sort
+ * Author: Zdenek Lapes <lapes.zdenek@gmail.com> (xlapes02)
+ * Date: 2024-03-06
+ * Description: Parallel Merge Sort using MPI
+ * Compile: mpic++ -o pms pms.cpp
+ * Run: mpirun -np 4 ./pms
+ * Input: File "numbers" with numbers separated by space in the same directory as the executable
+ * Output: Sorted numbers (stdout)
+ */
+
 #include <cstdio>
 #include <mpi.h>
 #include <string>
@@ -340,3 +351,5 @@ int main(int argc, char *argv[]) {
     delete program;
     return 0;
 }
+
+/* End of pms.cpp */
