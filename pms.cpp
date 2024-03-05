@@ -11,8 +11,8 @@
 #include <cstdarg>
 
 #define INPUT_FILE "./numbers"
-#define DEBUG 1
-#define DEBUG_LITE 1
+#define DEBUG 0
+#define DEBUG_LITE 0
 #define DEBUG_PRINT_LITE(fmt, ...) \
             do { if (DEBUG_LITE) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 #define DEBUG_PRINT(fmt, ...) \
@@ -171,29 +171,43 @@ void receive_number(Program * program) {
     program->deques[tag].push_back(number);
 }
 
+//void print_output(Program * program) {
+//    while (program->recv_elements < program->numbers_count) {
+//        receive_number(program);
+//    }
+//
+////    DEBUG_PRINT_LITE("Q0 size: %ld\tQ1 size: %ld\tcurrent process %d\n", program->deques[Q0].size(), program->deques[Q1].size(), program->process_id);
+//    for (; !(program->deques[Q0].empty() && program->deques[Q1].empty());) {
+//        if (program->deques[Q0].front() > program->deques[Q1].front() || program->deques[Q1].empty()) {
+//            std::cout << +program->deques[Q0].front() << "\n";
+//            program->deques[Q0].pop_front();
+//        } else {
+//            std::cout << +program->deques[Q1].front() << "\n";
+//            program->deques[Q1].pop_front();
+//        }
+//    }
+//}
+
 void print_output(Program * program) {
     while (program->recv_elements < program->numbers_count) {
         receive_number(program);
     }
 
-    // swap order
-//    for (int i = 0; i < QUEUE_COUNT; i++) {
-//        std::deque<unsigned char> temp = program->deques[i];
-//        program->deques[i] = program->deques[QUEUE_COUNT - i - 1];
-//        program->deques[QUEUE_COUNT - i - 1] = temp;
-//    }
-
 //    DEBUG_PRINT_LITE("Q0 size: %ld\tQ1 size: %ld\tcurrent process %d\n", program->deques[Q0].size(), program->deques[Q1].size(), program->process_id);
     for (; !(program->deques[Q0].empty() && program->deques[Q1].empty());) {
-        if (program->deques[Q0].front() > program->deques[Q1].front() || program->deques[Q1].empty()) {
-            std::cout << +program->deques[Q0].front() << "\n";
-            program->deques[Q0].pop_front();
+        if (program->deques[Q1].empty() ||
+            (!program->deques[Q0].empty() && program->deques[Q0].back() <= program->deques[Q1].back())) {
+            // If Q1 is empty or the front of Q0 is smaller or equal to the front of Q1, print from Q0
+            std::cout << +program->deques[Q0].back() << "\n";
+            program->deques[Q0].pop_back();
         } else {
-            std::cout << +program->deques[Q1].front() << "\n";
-            program->deques[Q1].pop_front();
+            // Otherwise, print from Q1
+            std::cout << +program->deques[Q1].back() << "\n";
+            program->deques[Q1].pop_back();
         }
     }
 }
+
 
 void check_can_start_send(Program * program) {
     int needed_size = 1 << (program->process_id - 1);
@@ -257,15 +271,23 @@ int main(int argc, char *argv[]) {
         printf("\n");
     }
 
-    if (program->process_id != 0) {
-        usleep(10000);
-    }
+    // if only 1 number print it and exit
+    if (program->numbers_count == 1) {
+        if (program->process_id == 0) {
+            std::cout << +program->numbers[0] << "\n";
+        }
+    } else {
+        if (program->process_id != 0) {
+            usleep(10000);
+        }
 
 //    DEBUG_PRINT_LITE("Current process %d\t MPI size %d\tprogram->numbers_count %lld\n", program->process_id, program->mpi_size, program->numbers_count);
-    pipeline_merge_sort(program);
+        pipeline_merge_sort(program);
 
-    DEBUG_PRINT_LITE("Process %d finished\n", program->process_id);
-    MPI_Barrier(MPI_COMM_WORLD);
+        DEBUG_PRINT_LITE("Process %d finished\n", program->process_id);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
     MPI_Finalize();
     free(program->numbers);
     program->numbers = nullptr;
