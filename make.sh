@@ -81,8 +81,8 @@ function build_mpi() {
     numbers=4
     calc=$(echo "(l($numbers)/l(2))+1" | bc -l)
     proc=$(python3 -c "from math import ceil; print (ceil($calc))") # zaokrohleni nahoru
-    mpic++ --prefix /usr/local/share/OpenMPI -o pms pms.cpp || die "mpic++ failed"
-    dd if=/dev/random bs=1 count=$numbers of=numbers 2> /dev/null || die "dd failed"
+    mpic++ -g -O0 --prefix /usr/local/share/OpenMPI -o pms pms.cpp || die "mpic++ failed"
+#    dd if=/dev/random bs=1 count=$numbers of=numbers 2> /dev/null || die "dd failed"
     #mpirun --prefix /usr/local/share/OpenMPI -np $proc pms || die "mpirun failed"
     echo "Pocet procesoru: $proc; pocet cisel: $numbers"
     echo "================"
