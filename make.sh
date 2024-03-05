@@ -78,7 +78,7 @@ function build() {
 }
 
 function build_mpi() {
-    numbers=4
+    numbers=8
     calc=$(echo "(l($numbers)/l(2))+1" | bc -l)
     proc=$(python3 -c "from math import ceil; print (ceil($calc))") # zaokrohleni nahoru
     mpic++ -g -O0 --prefix /usr/local/share/OpenMPI -o pms pms.cpp || die "mpic++ failed"

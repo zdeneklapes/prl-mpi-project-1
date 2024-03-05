@@ -92,15 +92,19 @@ int get_queue_id_send(Program * program) {
     int current_chunk = program->send_elements / change;
     int queue_id = current_chunk % QUEUE_COUNT == 0 ? Q0 : Q1;
 //    DEBUG_PRINT_LITE("process_id: %d\tmpi_size: %d\tchange: %d\tcurrent_chunk: %d\tqueue_id: %d\n", program->process_id, program->mpi_size, change, current_chunk, queue_id);
-    if (program->process_id == program->mpi_size - 2) {
-        return 0;
-    } else {
-        return queue_id;
-    }
+    return queue_id;
 }
 
 u_char get_number_send(Program *program) {
     unsigned char number = '\0';
+
+    if (program->process_id == 1) {
+        if (program->send_elements % 2 == 1 && !program->queues[Q1].empty()) {
+            number = program->queues[Q1].front();
+            program->queues[Q1].pop();
+            return number;
+        }
+    }
 
     DEBUG_PRINT_LITE("Q0 (size: %ld) vs. Q1 (size: %ld): %d vs %d\n", program->queues[Q0].size(), program->queues[Q1].size(), program->queues[Q0].front(), program->queues[Q1].front());
     if (program->queues[Q0].front() > program->queues[Q1].front() || program->queues[Q1].empty()) {
@@ -119,7 +123,7 @@ void send_number(Program * program) {
 
     //    DEBUG_PRINT_LITE("START Send: %d\ttag %d\tfrom process %d\tto process %d\n", number, tag, program->process_id, program->process_id + 1);
     int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1, tag, MPI_COMM_WORLD);
-    DEBUG_PRINT_LITE("Send: %d\ttag %d\tcurrent process %d\n", number, tag, program->process_id);
+    DEBUG_PRINT_LITE("Send: %d \ttag %d\tcurrent process %d\n", number, tag, program->process_id);
 
     if (returned_code != MPI_SUCCESS) {
         die("Cannot send data");
@@ -132,28 +136,28 @@ int get_queue_id_recv(const Program *program) {
     int change = 1 << (program->process_id - 1);
     int current_chunk = program->recv_elements / change;
     int queue_id = current_chunk % QUEUE_COUNT == 0 ? Q0 : Q1;
-    if (program->process_id != program->mpi_size - 1) {
+//    if (program->process_id != program->mpi_size - 1) {
         return queue_id;
-    } else {
-        return 0;
-    }
+//    } else {
+//        return 0;
+//    }
 }
 
 
 void receive_number(Program * program) {
     unsigned char number = '\0';
     MPI_Status status;
-    int queue_id = get_queue_id_recv(program);
+    int tag = get_queue_id_recv(program);
 //    DEBUG_PRINT_LITE("current size Q0: %ld\tcurrent size Q1: %ld\tcurrent process %d\n", program->queues[Q0].size(), program->queues[Q1].size(), program->process_id);
-    DEBUG_PRINT_LITE("Recv START\ttag %d\tcurrent process %d\n", queue_id, program->process_id);
-    int returned_code = MPI_Recv(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id - 1, queue_id,
+    DEBUG_PRINT_LITE("Recv START\ttag %d\tcurrent process %d\n", tag, program->process_id);
+    int returned_code = MPI_Recv(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id - 1, tag,
                                  MPI_COMM_WORLD, &status);
-    DEBUG_PRINT_LITE("Recv: %d\ttag %d\tcurrent process %d\n", number, queue_id, program->process_id);
+    DEBUG_PRINT_LITE("Recv: %d\ttag %d\tcurrent process %d\n", number, tag, program->process_id);
     if (returned_code != MPI_SUCCESS) {
         die("Cannot receive data");
     }
     program->recv_elements++;
-    program->queues[queue_id].push(number);
+    program->queues[tag].push(number);
 }
 
 void print_output(Program * program) {
@@ -161,8 +165,14 @@ void print_output(Program * program) {
         receive_number(program);
     }
 //    DEBUG_PRINT_LITE("Q0 size: %ld\tQ1 size: %ld\tcurrent process %d\n", program->queues[Q0].size(), program->queues[Q1].size(), program->process_id);
-    for (; !program->queues[Q0].empty(); program->queues[Q0].pop()) {
-        std::cout << +program->queues[Q0].front() << "\n";
+    for (; !(program->queues[Q0].empty() && program->queues[Q1].empty());) {
+        if (program->queues[Q0].front() > program->queues[Q1].front() || program->queues[Q1].empty()) {
+            std::cout << +program->queues[Q0].front() << "\n";
+            program->queues[Q0].pop();
+        } else {
+            std::cout << +program->queues[Q1].front() << "\n";
+            program->queues[Q1].pop();
+        }
     }
 }
 
@@ -222,7 +232,7 @@ void pipeline_merge_sort(Program * program) {
             }
 
             int returned_code = MPI_Send(&number, program->mpi_send_count, MPI_UNSIGNED_CHAR, program->process_id + 1, tag, MPI_COMM_WORLD);
-            DEBUG_PRINT_LITE("Send: %d\ttag %d\tcurrent process %d\n", number, tag, program->process_id);
+            DEBUG_PRINT_LITE("Send: %d \ttag %d\tcurrent process %d\n", number, tag, program->process_id);
             if (returned_code != MPI_SUCCESS) { die("Cannot send data"); }
         }
     } else if (program->process_id != program->mpi_size - 1) {
@@ -231,7 +241,7 @@ void pipeline_merge_sort(Program * program) {
             if (program->recv_elements < program->numbers_count) {
                 receive_number(program);
             }
-//            print_queue(program);
+            print_queue(program);
 
             if (!program->can_send) {
                 check_can_start_send(program);
