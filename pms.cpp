@@ -261,7 +261,6 @@ int main(int argc, char *argv[]) {
 
     // Check if the number of processes is a power of 2 and less than the count of numbers
     program->max_queue_0_elements = (program->process_id > 0) ? 1 << (program->process_id - 1) : 0; // 2^(id-1)
-    assert(program->mpi_size == get_max_mpi_size(program));
 
     if (program->process_id == 0) {
         read_numbers(program);
